@@ -4,9 +4,20 @@ SetWorkingDir %A_ScriptDir%
 #Include %A_ScriptDir%/JSON.ahk
 #Include %A_ScriptDir%/Zip.ahk
 
-FileRead, token, RSACF-token.txt
+token := LoadToken()
 RSACF := new Package("RSACF", "ZsoltMolnarrr", token)
 Resolve(RSACF)
+
+LoadToken() {
+	token_file_name := "RSACF-token.txt"
+	if !FileExist(token_file_name) {
+		message := "Missing access token.`nCreate a file next to the installer, name it: " . token_file_name . " and write your GitHub personal token into it."
+		MsgBox, , RSACF Installer, %message%
+		ExitApp
+	}
+	FileRead, token, %token_file_name%
+	return token
+}
 
 Resolve(package) {
 	; Setup Github context
