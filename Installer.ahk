@@ -4,41 +4,52 @@ SetWorkingDir %A_ScriptDir%
 #Include %A_ScriptDir%/JSON.ahk
 #Include %A_ScriptDir%/Zip.ahk
 
-url := "https://api.github.com/repos/" . "ZsoltMolnarrr/RSACF" . "/releases/latest"
 FileRead, token, token.txt
+RSACF := new Package("RSACF", "ZsoltMolnarrr", token)
+Resolve(RSACF)
 
-response := Request("GET", url, token)
-parsed := JSON.Load(response.body)
+Resolve(package) {
+	; Setup Github context
+	github_api_basepath := "https://api.github.com/"
+	repository :=  package.author . "/" . package.name
+	api_repo_url := github_api_basepath . "repos/" . repository
+	accessToken := package.accessToken
 
-zip_url := parsed.zipball_url
-asset_id := parsed.assets[1].id
+	; Output file setup
+	zip_name := package.name . ".zip"
+	zip_path := A_ScriptDir . "\" . zip_name
+	dir_name := package.name
+	dir_path := A_ScriptDir . "\" . dir_name
 
-asset_url := "https://api.github.com/repos/" . "ZsoltMolnarrr/RSACF" . "/releases/assets/" . asset_id
-response := Request("GET", asset_url, token, "octet-stream", false)
-headers := StrSplit(response.headers, "`n")
-locationHeader := ""
-for index, header in headers {
-	found := InStr(header, "Location")
-	if found {
-		locationHeader := StrReplace(header, "Location: ")
-		break
+	; Fetch info about the latest release
+	url := api_repo_url . "/releases/latest"
+	response := Request("GET", url, accessToken)
+	release := JSON.Load(response.body)
+	asset_id := release.assets[1].id
+	version := release.name
+
+	; Retrieve the the asset url
+	url := api_repo_url . "/releases/assets/" . asset_id
+	response := Request("GET", url, accessToken, "octet-stream", false)
+	locationHeader := GetHeaderValue(response.headers, "Location")
+
+	; Download the asset
+	if response.status == 302 && locationHeader {
+		UrlDownloadToFile, %locationHeader%, %zip_name%
+	} else {
+		DisplayError("Failed to redirect " . response.headers , response)
 	}
+
+	; Remove previous installation
+	FileRemoveDir, %dir_name%
+	sleep 200	; Safety frist :)
+
+	; Unzip new version
+	Unzip(zip_path, dir_path)
+
+	; Cleanup zip
+	FileDelete, %zip_name%
 }
-
-if response.status == 302 && locationHeader {
-	UrlDownloadToFile, %locationHeader%, RSACF.zip
-} else {
-	DisplayError("Failed to redirect", response)
-}
-
-FileRemoveDir, RSACF
-sleep 200
-
-zip := A_ScriptDir . "\RSACF.zip"
-dir := A_ScriptDir . "\RSACF"
-Unzip(zip, dir)
-
-FileDelete, RSACF.zip
 
 DisplayError(reason, response) {
 	message := reason . "`n status: " . response.status . " body: " . response.body
@@ -57,17 +68,3 @@ class Package {
 		this.accessToken := accessToken
 	}
 }
-
-class Release {
-	version := ""
-	changelog := ""
-}
-
-;MsgBox, %download_url%
-;message := "token: " . token . "status: " . response.status . " body: " . response.body . " response headers: " . response.headers
-;MsgBox, %message%
-;MsgBox, %zip_url%
-
-;Gui, add, edit, h100 , %asset_url%
-;Gui, Show
-;Return

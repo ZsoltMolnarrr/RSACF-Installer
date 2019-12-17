@@ -16,3 +16,17 @@ Request(method, url, accessToken := 0, format := "json", allowRedirect := true) 
 
 	return {status: status, body: body, headers: headers}
 }
+
+GetHeaderValue(headers, key) {
+    headers := StrSplit(headers, "`n")
+    value := ""
+    for index, header in headers {
+        found := InStr(header, key)
+        if found {
+            fullKey := key . ": "
+            value := StrReplace(header, fullKey)
+            break
+        }
+    }
+    return value
+}
