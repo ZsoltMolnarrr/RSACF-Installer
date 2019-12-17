@@ -1,34 +1,11 @@
-#Include %A_ScriptDir%/JSON.ahk
-
+#SingleInstance,Force
 SetWorkingDir %A_ScriptDir%
+#Include %A_ScriptDir%/Network.ahk
+#Include %A_ScriptDir%/JSON.ahk
+#Include %A_ScriptDir%/Zip.ahk
 
 url := "https://api.github.com/repos/" . "ZsoltMolnarrr/RSACF" . "/releases/latest"
 FileRead, token, token.txt
-
-Request(method, url, accessToken := 0, format := "json", allowRedirect := true) {
-	request := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-	request.Open(method, url, true)
-	request.SetRequestHeader("Accept", "application/" . format)
-	if accessToken {
-		request.SetRequestHeader("Authorization", "token " . accessToken)
-	}
-	request.Option(6) := allowRedirect
-
-	request.Send(Data)
-	request.WaitForResponse()
-
-	status := request.Status
-	body := request.ResponseText
-	headers := request.GetAllResponseHeaders()
-
-	return {status: status, body: body, headers: headers}
-}
-
-DisplayError(reason, response) {
-	message := reason . "`n status: " . response.status . " body: " . response.body
-	;"response headers: " . response.headers
-	MsgBox, , Error!, %message%
-}
 
 response := Request("GET", url, token)
 parsed := JSON.Load(response.body)
@@ -54,10 +31,37 @@ if response.status == 302 && locationHeader {
 	DisplayError("Failed to redirect", response)
 }
 
-FileRemoveDir, RSACF.zip
+FileRemoveDir, RSACF
+sleep 200
 
-;UnZip(RSACF.zip, RSACF)
+zip := A_ScriptDir . "\RSACF.zip"
+dir := A_ScriptDir . "\RSACF"
+Unzip(zip, dir)
 
+FileDelete, RSACF.zip
+
+DisplayError(reason, response) {
+	message := reason . "`n status: " . response.status . " body: " . response.body
+	;"response headers: " . response.headers
+	MsgBox, , Error!, %message%
+}
+
+class Package {
+	name := ""
+	author := ""
+	accessToken := ""
+
+	__New(name, author, accessToken) {
+		this.name := name
+		this.author := author
+		this.accessToken := accessToken
+	}
+}
+
+class Release {
+	version := ""
+	changelog := ""
+}
 
 ;MsgBox, %download_url%
 ;message := "token: " . token . "status: " . response.status . " body: " . response.body . " response headers: " . response.headers
